@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SWARM_OS // Autonomous Agent Simulation</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <canvas id="swarm-canvas"></canvas>
+
+    <div id="hud-container">
+        <div class="hud-header">
+            <h2>SWARM_INTELLIGENCE // v2.0</h2>
+            <p id="agent-counter">AGENTES ACTIVOS: 150</p>
+        </div>
+
+        <hr class="hud-divider">
+        <p class="hud-instruction">> HAZ CLIC PARA GENERAR UN COLOIDE REPELENTE (OBSTÁCULO)</p>
+        <hr class="hud-divider">
+
+        <div class="control-group">
+            <label class="hud-label">SEPARACIÓN / EVASIÓN (<span id="val-sep">1.5</span>)</label>
+            <input type="range" id="slider-sep" min="0.0" max="3.0" step="0.1" value="1.5">
+        </div>
+
+        <div class="control-group">
+            <label class="hud-label">ALINEACIÓN / DIRECCIÓN (<span id="val-ali">1.0</span>)</label>
+            <input type="range" id="slider-ali" min="0.0" max="3.0" step="0.1" value="1.0">
+        </div>
+
+        <div class="control-group">
+            <label class="hud-label">COHESIÓN / ATRACCIÓN (<span id="val-coh">1.0</span>)</label>
+            <input type="range" id="slider-coh" min="0.0" max="3.0" step="0.1" value="1.0">
+        </div>
+
+        <div class="control-group">
+            <label class="hud-label">RADIO DE PERCEPCIÓN (<span id="val-percepcion">50</span> px)</label>
+            <input type="range" id="slider-percepcion" min="15" max="150" step="5" value="50">
+        </div>
+
+        <button id="btn-reset" class="hud-button">REINICIAR SISTEMA</button>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
