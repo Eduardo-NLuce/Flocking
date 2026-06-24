@@ -1,0 +1,115 @@
+:root {
+    --neon-magenta: #ff0055;
+    --neon-cyan: #00f3ff;
+    --neon-glow: rgba(255, 0, 85, 0.2);
+    --bg-dark: rgba(10, 3, 10, 0.85);
+}
+
+body, html {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: #050107;
+    font-family: 'Courier New', Courier, monospace;
+    color: var(--neon-cyan);
+}
+
+canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+}
+
+#hud-container {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 10;
+    width: 320px;
+    background: var(--bg-dark);
+    border: 1px solid var(--neon-magenta);
+    box-shadow: 0 0 15px var(--neon-glow);
+    padding: 20px;
+    backdrop-filter: blur(5px);
+    border-radius: 2px;
+}
+
+.hud-header h2 {
+    margin: 0;
+    font-size: 1.1rem;
+    letter-spacing: 1px;
+    color: var(--neon-magenta);
+    text-shadow: 0 0 5px var(--neon-magenta);
+}
+
+.hud-header p {
+    margin: 5px 0 0 0;
+    font-size: 0.8rem;
+    color: var(--neon-cyan);
+}
+
+.hud-instruction {
+    font-size: 0.7rem;
+    color: #fff;
+    opacity: 0.5;
+    margin: 5px 0;
+}
+
+.hud-divider {
+    border: 0;
+    height: 1px;
+    background: var(--neon-magenta);
+    margin: 12px 0;
+    opacity: 0.4;
+}
+
+.control-group {
+    margin-bottom: 16px;
+}
+
+.hud-label {
+    display: block;
+    font-size: 0.75rem;
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+}
+
+input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    background: #1a0210;
+    outline: none;
+    border: 1px solid var(--neon-cyan);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    background: var(--neon-cyan);
+    cursor: pointer;
+    box-shadow: 0 0 5px var(--neon-cyan);
+}
+
+.hud-button {
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--neon-magenta);
+    color: var(--neon-magenta);
+    padding: 10px;
+    font-family: inherit;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.hud-button:hover {
+    background: var(--neon-magenta);
+    color: #050107;
+    box-shadow: 0 0 10px var(--neon-magenta);
+}
