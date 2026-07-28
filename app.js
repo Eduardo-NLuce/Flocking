@@ -18,40 +18,72 @@ const btnClearWalls = document.getElementById('btn-clear-walls');
 const btnToggleHud = document.getElementById('btn-toggle-hud');
 const hudContainer = document.getElementById('hud-container');
 
-// Arreglo de segmentos dibujados: { x1, y1, x2, y2 }
+// Arreglo de paredes: { x1, y1, x2, y2 }
 let walls = [];
 let isDrawing = false;
-let lastPoint = null;
+let lastX = 0;
+let lastY = 0;
 
-// --- LOGICA TOGGLE HUD ---
+// --- TOGGLE HUD ---
 btnToggleHud.addEventListener('click', () => {
     hudContainer.classList.toggle('minimized');
-    if (hudContainer.classList.contains('minimized')) {
-        btnToggleHud.innerText = "[+ CONTROL_SYS]";
-    } else {
-        btnToggleHud.innerText = "_ MINIMIZE";
+    btnToggleHud.innerText = hudContainer.classList.contains('minimized') 
+        ? "[+ CONTROL_SYS]" 
+        : "_ MINIMIZE";
+});
+
+// --- SISTEMA DE DIBUJO DIRECTO ---
+canvas.addEventListener('mousedown', (e) => {
+    isDrawing = true;
+    lastX = e.clientX;
+    lastY = e.clientY;
+});
+
+canvas.addEventListener('mousemove', (e) => {
+    if (!isDrawing) return;
+
+    let currentX = e.clientX;
+    let currentY = e.clientY;
+
+    let dx = currentX - lastX;
+    let dy = currentY - lastY;
+    let dist = Math.sqrt(dx * dx + dy * dy);
+
+    // Dibuja un segmento si el ratón se movió al menos 3 píxeles
+    if (dist > 3) {
+        walls.push({
+            x1: lastX,
+            y1: lastY,
+            x2: currentX,
+            y2: currentY
+        });
+        lastX = currentX;
+        lastY = currentY;
     }
 });
 
-// --- HELPER MATEMÁTICO: Punto más cercano sobre un segmento de línea ---
+window.addEventListener('mouseup', () => {
+    isDrawing = false;
+});
+
+// --- HELPER MATEMÁTICO ---
 function getClosestPointOnSegment(p, a, b) {
     let ab = { x: b.x - a.x, y: b.y - a.y };
     let ap = { x: p.x - a.x, y: p.y - a.y };
     let abLenSq = ab.x * ab.x + ab.y * ab.y;
     
-    if (abLenSq === 0) return { x: a.x, y: a.y, t: 0 };
+    if (abLenSq === 0) return { x: a.x, y: a.y };
 
     let t = (ap.x * ab.x + ap.y * ab.y) / abLenSq;
     t = Math.max(0, Math.min(1, t));
 
     return {
         x: a.x + t * ab.x,
-        y: a.y + t * ab.y,
-        t: t
+        y: a.y + t * ab.y
     };
 }
 
-// --- CLASE AGENTE (BOID) ---
+// --- CLASE AGENTE ---
 class Agent {
     constructor(x, y) {
         this.position = { x: x, y: y };
@@ -91,11 +123,9 @@ class Agent {
 
     flock(agents) {
         let perceptionRadius = parseFloat(sliderPercepcion.value);
-        
         let sepForce = { x: 0, y: 0 };
         let aliForce = { x: 0, y: 0 };
         let cohForce = { x: 0, y: 0 };
-
         let totalNeighbors = 0;
 
         for (let other of agents) {
@@ -151,7 +181,7 @@ class Agent {
     }
 
     avoidWalls() {
-        const avoidDistance = 40;
+        const avoidDistance = 35;
 
         for (let wall of walls) {
             let a = { x: wall.x1, y: wall.y1 };
@@ -168,7 +198,7 @@ class Agent {
                 this.steerTowards(pushForce, strength);
             }
 
-            const minDist = 12;
+            const minDist = 10;
             if (dist < minDist && dist > 0) {
                 let nx = dx / dist;
                 let ny = dy / dist;
@@ -206,49 +236,7 @@ class Agent {
     }
 }
 
-// --- EVENTOS DE DIBUJO DE PAREDES (CORREGIDO) ---
-function getMousePos(e) {
-    const rect = canvas.getBoundingClientRect();
-    return {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top
-    };
-}
-
-window.addEventListener('mousedown', (e) => {
-    // Evita dibujar si hacemos clic sobre el botón de minimizar o el HUD expandido
-    if (e.target.closest('#hud-container') || e.target.closest('#btn-toggle-hud')) return;
-    
-    isDrawing = true;
-    lastPoint = getMousePos(e);
-});
-
-window.addEventListener('mousemove', (e) => {
-    if (!isDrawing || !lastPoint) return;
-
-    let currentPoint = getMousePos(e);
-    let dx = currentPoint.x - lastPoint.x;
-    let dy = currentPoint.y - lastPoint.y;
-    let dist = Math.sqrt(dx * dx + dy * dy);
-
-    // Crea un segmento cada vez que te mueves al menos 5 píxeles
-    if (dist > 5) {
-        walls.push({
-            x1: lastPoint.x,
-            y1: lastPoint.y,
-            x2: currentPoint.x,
-            y2: currentPoint.y
-        });
-        lastPoint = currentPoint;
-    }
-});
-
-window.addEventListener('mouseup', () => {
-    isDrawing = false;
-    lastPoint = null;
-});
-
-// --- INICIALIZACIÓN Y EVENTOS ---
+// --- INICIALIZACIÓN ---
 let agents = [];
 function initSwarm() {
     agents = [];
@@ -258,13 +246,11 @@ function initSwarm() {
 }
 
 btnReset.addEventListener('click', initSwarm);
-
-btnClearWalls.addEventListener('click', () => {
-    walls = [];
-});
+btnClearWalls.addEventListener('click', () => { walls = []; });
 
 // --- BUCLE DE ANIMACIÓN ---
 function animate() {
+    // Fondo transparente para crear el efecto de estela
     ctx.fillStyle = 'rgba(5, 1, 7, 0.15)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -273,13 +259,13 @@ function animate() {
     document.getElementById('val-coh').innerText = parseFloat(sliderCoh.value).toFixed(1);
     document.getElementById('val-percepcion').innerText = sliderPercepcion.value;
 
-    // RENDERIZADO DE PAREDES CON NEÓN MAGENTA (Se dibujan en cada frame sobre las estelas)
+    // RENDER DE PAREDES DIBUJADAS EN MAGENTA NEÓN
     if (walls.length > 0) {
         ctx.save();
         ctx.strokeStyle = '#ff0055';
         ctx.lineWidth = 5;
         ctx.shadowColor = '#ff0055';
-        ctx.shadowBlur = 12;
+        ctx.shadowBlur = 10;
         ctx.lineCap = 'round';
 
         ctx.beginPath();
@@ -291,7 +277,7 @@ function animate() {
         ctx.restore();
     }
 
-    // Actualizar y dibujar agentes
+    // Actualizar agentes
     for (let agent of agents) {
         agent.flock(agents);
         agent.update();
