@@ -8,20 +8,32 @@ function resizeCanvas() {
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-// --- CONTROLES DE LA INTERFAZ ---
+// --- UI CONTROLS & DOM ELEMENTS ---
 const sliderSep = document.getElementById('slider-sep');
 const sliderAli = document.getElementById('slider-ali');
 const sliderCoh = document.getElementById('slider-coh');
 const sliderPercepcion = document.getElementById('slider-percepcion');
 const btnReset = document.getElementById('btn-reset');
 
+const btnToggleHud = document.getElementById('btn-toggle-hud');
+const hudContainer = document.getElementById('hud-container');
+
 let obstacles = [];
 
-// --- CLASE AGENTE (BOID) ---
+// --- MINIMIZE / MAXIMIZE HUD LOGIC ---
+btnToggleHud.addEventListener('click', () => {
+    hudContainer.classList.toggle('minimized');
+    if (hudContainer.classList.contains('minimized')) {
+        btnToggleHud.innerText = "[+ CONTROL_SYS]";
+    } else {
+        btnToggleHud.innerText = "_ MINIMIZE";
+    }
+});
+
+// --- AGENT CLASS (BOID) ---
 class Agent {
     constructor(x, y) {
         this.position = { x: x, y: y };
-        // Velocidad aleatoria inicial
         let angle = Math.random() * Math.PI * 2;
         this.velocity = { x: Math.cos(angle) * 2, y: Math.sin(angle) * 2 };
         this.acceleration = { x: 0, y: 0 };
@@ -30,26 +42,21 @@ class Agent {
     }
 
     update() {
-        // Actualizar velocidad con la aceleración calculada
         this.velocity.x += this.acceleration.x;
         this.velocity.y += this.acceleration.y;
 
-        // Limitar a velocidad máxima
         let speed = Math.sqrt(this.velocity.x ** 2 + this.velocity.y ** 2);
         if (speed > this.maxSpeed) {
             this.velocity.x = (this.velocity.x / speed) * this.maxSpeed;
             this.velocity.y = (this.velocity.y / speed) * this.maxSpeed;
         }
 
-        // Modificar posición
         this.position.x += this.velocity.x;
         this.position.y += this.velocity.y;
 
-        // Resetear aceleración en cada ciclo
         this.acceleration.x = 0;
         this.acceleration.y = 0;
 
-        // Atravesar los bordes de la pantalla (Modo toroidal continuo)
         if (this.position.x < 0) this.position.x = canvas.width;
         if (this.position.x > canvas.width) this.position.x = 0;
         if (this.position.y < 0) this.position.y = canvas.height;
@@ -61,7 +68,6 @@ class Agent {
         this.acceleration.y += force.y;
     }
 
-    // --- CÁLCULO DE LAS 3 REGLAS COMPUTACIONALES ---
     flock(agents) {
         let perceptionRadius = parseFloat(sliderPercepcion.value);
         
@@ -77,15 +83,12 @@ class Agent {
             let d = Math.sqrt(dx * dx + dy * dy);
 
             if (other !== this && d < perceptionRadius) {
-                // 1. Acumular Separación (Fuerza inversamente proporcional a la distancia)
                 sepForce.x -= dx / (d * d);
                 sepForce.y -= dy / (d * d);
 
-                // 2. Acumular Alineación
                 aliForce.x += other.velocity.x;
                 aliForce.y += other.velocity.y;
 
-                // 3. Acumular Cohesión (Sumar posiciones vecinales)
                 cohForce.x += other.position.x;
                 cohForce.y += other.position.y;
 
@@ -94,14 +97,12 @@ class Agent {
         }
 
         if (totalNeighbors > 0) {
-            // Promediar y normalizar fuerzas según pesos de los sliders
             aliForce.x /= totalNeighbors;
             aliForce.y /= totalNeighbors;
             this.steerTowards(aliForce, parseFloat(sliderAli.value) * 0.5);
 
             cohForce.x /= totalNeighbors;
             cohForce.y /= totalNeighbors;
-            // El vector de cohesión va desde la posición actual hacia la posición promedio vecinal
             cohForce.x -= this.position.x;
             cohForce.y -= this.position.y;
             this.steerTowards(cohForce, parseFloat(sliderCoh.value) * 0.3);
@@ -109,7 +110,6 @@ class Agent {
             this.steerTowards(sepForce, parseFloat(sliderSep.value) * 1.5);
         }
 
-        // Evitar obstáculos colocados con el mouse
         this.avoidObstacles();
     }
 
@@ -119,7 +119,6 @@ class Agent {
             target.x = (target.x / mag) * this.maxSpeed - this.velocity.x;
             target.y = (target.y / mag) * this.maxSpeed - this.velocity.y;
             
-            // Limitar la fuerza de giro
             let fMag = Math.sqrt(target.x ** 2 + target.y ** 2);
             if (fMag > this.maxForce) {
                 target.x = (target.x / fMag) * this.maxForce;
@@ -138,7 +137,7 @@ class Agent {
 
             if (d < obs.radius + 40) {
                 let force = { x: dx / d, y: dy / d };
-                this.steerTowards(force, 2.5); // Fuerza de repulsión crítica
+                this.steerTowards(force, 2.5);
             }
         }
     }
@@ -150,7 +149,6 @@ class Agent {
         ctx.translate(this.position.x, this.position.y);
         ctx.rotate(angle);
 
-        // Dibujar agente como un vector triangular estilizado de neón cian
         ctx.beginPath();
         ctx.moveTo(8, 0);
         ctx.lineTo(-6, -4);
@@ -166,7 +164,7 @@ class Agent {
     }
 }
 
-// --- CONFIGURACIÓN DE LA MATRIZ DE AGENTES ---
+// --- INITIALIZE SWARM ---
 let agents = [];
 function initSwarm() {
     agents = [];
@@ -176,7 +174,7 @@ function initSwarm() {
     }
 }
 
-// Interacción para colocar obstáculos repulsores
+// Canvas click interaction for obstacles
 canvas.addEventListener('mousedown', (e) => {
     const rect = canvas.getBoundingClientRect();
     obstacles.push({
@@ -184,27 +182,21 @@ canvas.addEventListener('mousedown', (e) => {
         y: e.clientY - rect.top,
         radius: 25
     });
-    if (obstacles.length > 4) obstacles.shift(); // Conservar máximo 4 obstáculos
+    if (obstacles.length > 4) obstacles.shift();
 });
 
 btnReset.addEventListener('click', initSwarm);
 
-// --- BUCLE DE ANIMACIÓN DINÁMICO ---
+// --- ANIMATION LOOP ---
 function animate() {
-    // TRUCO DE COMPUTATIONAL DESIGN: En lugar de borrar todo el canvas con clearRect,
-    // dibujamos un rectángulo negro con una opacidad del 10% (0.1). Esto hace que
-    // las posiciones anteriores de los agentes se desvanezcan lentamente, creando
-    // un rastro cinético espectacular estilo barrido de luz.
     ctx.fillStyle = 'rgba(5, 1, 7, 0.1)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Actualizar valores numéricos en el HUD
     document.getElementById('val-sep').innerText = parseFloat(sliderSep.value).toFixed(1);
     document.getElementById('val-ali').innerText = parseFloat(sliderAli.value).toFixed(1);
     document.getElementById('val-coh').innerText = parseFloat(sliderCoh.value).toFixed(1);
     document.getElementById('val-percepcion').innerText = sliderPercepcion.value;
 
-    // Dibujar obstáculos activos
     for (let obs of obstacles) {
         ctx.beginPath();
         ctx.arc(obs.x, obs.y, obs.radius, 0, Math.PI * 2);
@@ -216,9 +208,8 @@ function animate() {
         ctx.fill();
         ctx.stroke();
     }
-    ctx.shadowBlur = 0; // Limpiar sombra para los agentes
+    ctx.shadowBlur = 0;
 
-    // Ejecutar lógica de enjambre y actualizar agentes
     for (let agent of agents) {
         agent.flock(agents);
         agent.update();
@@ -228,6 +219,8 @@ function animate() {
     requestAnimationFrame(animate);
 }
 
+initSwarm();
+animate();
 // Iniciar simulación
 initSwarm();
 animate();
