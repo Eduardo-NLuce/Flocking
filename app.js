@@ -37,57 +37,67 @@ btnToggleHud.addEventListener('click', () => {
         : "_ MINIMIZE";
 });
 
+// Helper para obtener coordenadas exactas del mouse sobre el Canvas
+function getCanvasPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+    };
+}
+
 // --- SISTEMA DUAL DE DIBUJO (POINT VS LINE) ---
-canvas.addEventListener('mousedown', (e) => {
+window.addEventListener('mousedown', (e) => {
+    // Si hacemos clic en el botón de minimizar o sobre el HUD abierto, ignoramos el dibujo
+    if (e.target.closest('#hud-container') || e.target.closest('#btn-toggle-hud')) return;
+
+    const pos = getCanvasPos(e);
     isMouseDown = true;
-    isDragging = false; // Asumimos inicialmente que es solo un clic
-    startX = e.clientX;
-    startY = e.clientY;
-    lastX = e.clientX;
-    lastY = e.clientY;
+    isDragging = false;
+    startX = pos.x;
+    startY = pos.y;
+    lastX = pos.x;
+    lastY = pos.y;
 });
 
-canvas.addEventListener('mousemove', (e) => {
+window.addEventListener('mousemove', (e) => {
     if (!isMouseDown) return;
 
-    let currentX = e.clientX;
-    let currentY = e.clientY;
-
-    let dxFromStart = currentX - startX;
-    let dyFromStart = currentY - startY;
+    const pos = getCanvasPos(e);
+    let dxFromStart = pos.x - startX;
+    let dyFromStart = pos.y - startY;
     let distFromStart = Math.sqrt(dxFromStart * dxFromStart + dyFromStart * dyFromStart);
 
-    // Si el usuario se desplaza más de 6px desde el origen, se activa el modo Drag (Líneas)
-    if (distFromStart > 6) {
+    // Si nos movemos más de 5 píxeles, cambiamos a modo Línea (Arrastrar)
+    if (distFromStart > 5) {
         isDragging = true;
 
-        let dx = currentX - lastX;
-        let dy = currentY - lastY;
+        let dx = pos.x - lastX;
+        let dy = pos.y - lastY;
         let dist = Math.sqrt(dx * dx + dy * dy);
 
         if (dist > 3) {
             walls.push({
                 x1: lastX,
                 y1: lastY,
-                x2: currentX,
-                y2: currentY
+                x2: pos.x,
+                y2: pos.y
             });
-            lastX = currentX;
-            lastY = currentY;
+            lastX = pos.x;
+            lastY = pos.y;
         }
     }
 });
 
 window.addEventListener('mouseup', (e) => {
     if (isMouseDown) {
-        // Si no se arrastró, fue un clic simple: Generar punto/círculo obstáculo
+        // Si no se arrastró, fue un clic puntual -> Dibujar punto/círculo obstáculo
         if (!isDragging) {
             circles.push({
                 x: startX,
                 y: startY,
                 radius: 18
             });
-            if (circles.length > 8) circles.shift(); // Limite de 8 puntos
         }
     }
     isMouseDown = false;
@@ -217,7 +227,15 @@ class Agent {
 
             if (dist < c.radius + 35 && dist > 0) {
                 let pushForce = { x: dx / dist, y: dy / dist };
-                this.steerTowards(pushForce, 2.8);
+                this.steerTowards(pushForce, 3.0);
+            }
+
+            // Rebote estricto en el borde del círculo
+            if (dist < c.radius + 8 && dist > 0) {
+                let nx = dx / dist;
+                let ny = dy / dist;
+                this.position.x = c.x + nx * (c.radius + 8);
+                this.position.y = c.y + ny * (c.radius + 8);
             }
         }
 
@@ -302,16 +320,21 @@ function animate() {
     document.getElementById('val-percepcion').innerText = sliderPercepcion.value;
 
     // RENDERIZAR PUNTOS (CÍRCULOS)
-    for (let c of circles) {
-        ctx.beginPath();
-        ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255, 0, 85, 0.3)';
+    if (circles.length > 0) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(255, 0, 85, 0.35)';
         ctx.strokeStyle = '#ff0055';
         ctx.lineWidth = 2;
         ctx.shadowColor = '#ff0055';
-        ctx.shadowBlur = 10;
-        ctx.fill();
-        ctx.stroke();
+        ctx.shadowBlur = 12;
+
+        for (let c of circles) {
+            ctx.beginPath();
+            ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        }
+        ctx.restore();
     }
 
     // RENDERIZAR PAREDES (LÍNEAS)
@@ -320,7 +343,7 @@ function animate() {
         ctx.strokeStyle = '#ff0055';
         ctx.lineWidth = 5;
         ctx.shadowColor = '#ff0055';
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 12;
         ctx.lineCap = 'round';
 
         ctx.beginPath();
