@@ -18,9 +18,14 @@ const btnClearWalls = document.getElementById('btn-clear-walls');
 const btnToggleHud = document.getElementById('btn-toggle-hud');
 const hudContainer = document.getElementById('hud-container');
 
-// Arreglo de paredes: { x1, y1, x2, y2 }
-let walls = [];
-let isDrawing = false;
+// Arreglos de obstáculos
+let walls = [];     // Para los trazos de líneas (clic + drag)
+let circles = [];   // Para los puntos fijos (clic puntual)
+
+let isMouseDown = false;
+let isDragging = false;
+let startX = 0;
+let startY = 0;
 let lastX = 0;
 let lastY = 0;
 
@@ -32,38 +37,61 @@ btnToggleHud.addEventListener('click', () => {
         : "_ MINIMIZE";
 });
 
-// --- SISTEMA DE DIBUJO DIRECTO ---
+// --- SISTEMA DUAL DE DIBUJO (POINT VS LINE) ---
 canvas.addEventListener('mousedown', (e) => {
-    isDrawing = true;
+    isMouseDown = true;
+    isDragging = false; // Asumimos inicialmente que es solo un clic
+    startX = e.clientX;
+    startY = e.clientY;
     lastX = e.clientX;
     lastY = e.clientY;
 });
 
 canvas.addEventListener('mousemove', (e) => {
-    if (!isDrawing) return;
+    if (!isMouseDown) return;
 
     let currentX = e.clientX;
     let currentY = e.clientY;
 
-    let dx = currentX - lastX;
-    let dy = currentY - lastY;
-    let dist = Math.sqrt(dx * dx + dy * dy);
+    let dxFromStart = currentX - startX;
+    let dyFromStart = currentY - startY;
+    let distFromStart = Math.sqrt(dxFromStart * dxFromStart + dyFromStart * dyFromStart);
 
-    // Dibuja un segmento si el ratón se movió al menos 3 píxeles
-    if (dist > 3) {
-        walls.push({
-            x1: lastX,
-            y1: lastY,
-            x2: currentX,
-            y2: currentY
-        });
-        lastX = currentX;
-        lastY = currentY;
+    // Si el usuario se desplaza más de 6px desde el origen, se activa el modo Drag (Líneas)
+    if (distFromStart > 6) {
+        isDragging = true;
+
+        let dx = currentX - lastX;
+        let dy = currentY - lastY;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist > 3) {
+            walls.push({
+                x1: lastX,
+                y1: lastY,
+                x2: currentX,
+                y2: currentY
+            });
+            lastX = currentX;
+            lastY = currentY;
+        }
     }
 });
 
-window.addEventListener('mouseup', () => {
-    isDrawing = false;
+window.addEventListener('mouseup', (e) => {
+    if (isMouseDown) {
+        // Si no se arrastró, fue un clic simple: Generar punto/círculo obstáculo
+        if (!isDragging) {
+            circles.push({
+                x: startX,
+                y: startY,
+                radius: 18
+            });
+            if (circles.length > 8) circles.shift(); // Limite de 8 puntos
+        }
+    }
+    isMouseDown = false;
+    isDragging = false;
 });
 
 // --- HELPER MATEMÁTICO ---
@@ -83,7 +111,7 @@ function getClosestPointOnSegment(p, a, b) {
     };
 }
 
-// --- CLASE AGENTE ---
+// --- CLASE AGENTE (BOID) ---
 class Agent {
     constructor(x, y) {
         this.position = { x: x, y: y };
@@ -161,7 +189,7 @@ class Agent {
             this.steerTowards(sepForce, parseFloat(sliderSep.value) * 1.5);
         }
 
-        this.avoidWalls();
+        this.avoidObstacles();
     }
 
     steerTowards(target, weight) {
@@ -180,9 +208,21 @@ class Agent {
         }
     }
 
-    avoidWalls() {
-        const avoidDistance = 35;
+    avoidObstacles() {
+        // 1. Repulsión y Colisión con Puntos (Círculos)
+        for (let c of circles) {
+            let dx = this.position.x - c.x;
+            let dy = this.position.y - c.y;
+            let dist = Math.sqrt(dx * dx + dy * dy);
 
+            if (dist < c.radius + 35 && dist > 0) {
+                let pushForce = { x: dx / dist, y: dy / dist };
+                this.steerTowards(pushForce, 2.8);
+            }
+        }
+
+        // 2. Repulsión y Colisión con Paredes (Líneas)
+        const avoidDistance = 35;
         for (let wall of walls) {
             let a = { x: wall.x1, y: wall.y1 };
             let b = { x: wall.x2, y: wall.y2 };
@@ -236,7 +276,7 @@ class Agent {
     }
 }
 
-// --- INICIALIZACIÓN ---
+// --- INICIALIZACIÓN Y EVENTOS ---
 let agents = [];
 function initSwarm() {
     agents = [];
@@ -246,11 +286,13 @@ function initSwarm() {
 }
 
 btnReset.addEventListener('click', initSwarm);
-btnClearWalls.addEventListener('click', () => { walls = []; });
+btnClearWalls.addEventListener('click', () => { 
+    walls = []; 
+    circles = [];
+});
 
 // --- BUCLE DE ANIMACIÓN ---
 function animate() {
-    // Fondo transparente para crear el efecto de estela
     ctx.fillStyle = 'rgba(5, 1, 7, 0.15)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -259,7 +301,20 @@ function animate() {
     document.getElementById('val-coh').innerText = parseFloat(sliderCoh.value).toFixed(1);
     document.getElementById('val-percepcion').innerText = sliderPercepcion.value;
 
-    // RENDER DE PAREDES DIBUJADAS EN MAGENTA NEÓN
+    // RENDERIZAR PUNTOS (CÍRCULOS)
+    for (let c of circles) {
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 0, 85, 0.3)';
+        ctx.strokeStyle = '#ff0055';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#ff0055';
+        ctx.shadowBlur = 10;
+        ctx.fill();
+        ctx.stroke();
+    }
+
+    // RENDERIZAR PAREDES (LÍNEAS)
     if (walls.length > 0) {
         ctx.save();
         ctx.strokeStyle = '#ff0055';
