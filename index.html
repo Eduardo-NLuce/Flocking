@@ -8,13 +8,13 @@
 </head>
 <body>
 
-    <!-- Canvas principal -->
+    <!-- Canvas donde se dibuja -->
     <canvas id="swarm-canvas"></canvas>
 
-    <!-- Botón flotante independiente -->
+    <!-- Botón Flotante -->
     <button id="btn-toggle-hud" class="hud-toggle-btn">_ MINIMIZE</button>
 
-    <!-- Panel de control HUD -->
+    <!-- Panel de Control -->
     <div id="hud-container">
         <div id="hud-content">
             <div class="hud-header">
@@ -26,7 +26,6 @@
             <p class="hud-instruction">> CLICK & DRAG MOUSE TO DRAW OBSTACLE WALLS</p>
             <hr class="hud-divider">
 
-            <!-- Sliders de comportamiento -->
             <div class="control-group">
                 <label class="hud-label">SEPARATION / AVOIDANCE (<span id="val-sep">1.5</span>)</label>
                 <input type="range" id="slider-sep" min="0.0" max="3.0" step="0.1" value="1.5">
@@ -51,10 +50,6 @@
             <button id="btn-reset" class="hud-button">RESET SWARM</button>
         </div>
     </div>
-
-    <script src="app.js"></script>
-</body>
-</html>
 
     <script src="app.js"></script>
 </body>
