@@ -1,8 +1,8 @@
 :root {
     --neon-magenta: #ff0055;
     --neon-cyan: #00f3ff;
-    --neon-glow: rgba(255, 0, 85, 0.2);
-    --bg-dark: rgba(10, 3, 10, 0.85);
+    --neon-glow: rgba(255, 0, 85, 0.25);
+    --bg-dark: rgba(10, 3, 10, 0.88);
 }
 
 body, html {
@@ -24,20 +24,52 @@ canvas {
     z-index: 1;
 }
 
-#hud-container {
-    position: absolute;
+/* Independent Fixed Toggle Button */
+.hud-toggle-btn {
+    position: fixed;
     top: 20px;
     left: 20px;
+    z-index: 100; /* Always on top */
+    background: rgba(10, 3, 10, 0.95);
+    border: 1px solid var(--neon-magenta);
+    color: var(--neon-magenta);
+    font-family: inherit;
+    font-size: 0.72rem;
+    font-weight: bold;
+    padding: 8px 14px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    box-shadow: 0 0 10px var(--neon-glow);
+    transition: all 0.2s ease;
+}
+
+.hud-toggle-btn:hover {
+    background: var(--neon-magenta);
+    color: #050107;
+}
+
+/* Main Panel */
+#hud-container {
+    position: fixed;
+    top: 60px; /* Positioned right below the button */
+    left: 20px;
     z-index: 10;
-    width: 320px;
+    width: 310px;
     background: var(--bg-dark);
     border: 1px solid var(--neon-magenta);
     box-shadow: 0 0 15px var(--neon-glow);
     padding: 20px;
-    backdrop-filter: blur(5px);
-    border-radius: 2px;
+    backdrop-filter: blur(6px);
+    border-radius: 3px;
+    transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+/* Minimized State */
+#hud-container.minimized {
+    transform: translateX(-360px); /* Fully hides the panel */
+}
+
+/* Header and Controls Styling */
 .hud-header h2 {
     margin: 0;
     font-size: 1.1rem;
@@ -48,14 +80,14 @@ canvas {
 
 .hud-header p {
     margin: 5px 0 0 0;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: var(--neon-cyan);
 }
 
 .hud-instruction {
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     color: #fff;
-    opacity: 0.5;
+    opacity: 0.6;
     margin: 5px 0;
 }
 
@@ -73,7 +105,7 @@ canvas {
 
 .hud-label {
     display: block;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     margin-bottom: 6px;
     letter-spacing: 1px;
 }
