@@ -41,9 +41,8 @@ function getClosestPointOnSegment(p, a, b) {
     
     if (abLenSq === 0) return { x: a.x, y: a.y, t: 0 };
 
-    // Proyección del vector AP sobre AB
     let t = (ap.x * ab.x + ap.y * ab.y) / abLenSq;
-    t = Math.max(0, Math.min(1, t)); // Limitar dentro del segmento [0, 1]
+    t = Math.max(0, Math.min(1, t));
 
     return {
         x: a.x + t * ab.x,
@@ -79,7 +78,6 @@ class Agent {
         this.acceleration.x = 0;
         this.acceleration.y = 0;
 
-        // Limites toroidales
         if (this.position.x < 0) this.position.x = canvas.width;
         if (this.position.x > canvas.width) this.position.x = 0;
         if (this.position.y < 0) this.position.y = canvas.height;
@@ -133,7 +131,6 @@ class Agent {
             this.steerTowards(sepForce, parseFloat(sliderSep.value) * 1.5);
         }
 
-        // EVASIÓN Y COLISIÓN CON PAREDES DIBUJADAS
         this.avoidWalls();
     }
 
@@ -154,7 +151,7 @@ class Agent {
     }
 
     avoidWalls() {
-        const avoidDistance = 35; // Distancia de detección lejana para girar
+        const avoidDistance = 40;
 
         for (let wall of walls) {
             let a = { x: wall.x1, y: wall.y1 };
@@ -165,26 +162,21 @@ class Agent {
             let dy = this.position.y - closest.y;
             let dist = Math.sqrt(dx * dx + dy * dy);
 
-            // 1. Fuerza de Evasión (Steering Force)
             if (dist < avoidDistance && dist > 0) {
                 let pushForce = { x: dx / dist, y: dy / dist };
-                // A mayor cercanía, mayor fuerza de repulsión
-                let strength = (1 - dist / avoidDistance) * 3.0;
+                let strength = (1 - dist / avoidDistance) * 3.5;
                 this.steerTowards(pushForce, strength);
             }
 
-            // 2. Colisión Físicamente Infranqueable (Hard Constraint Bounce)
-            const minDist = 12; // Radio físico de colisión del agente
+            const minDist = 12;
             if (dist < minDist && dist > 0) {
-                // Reposicionar fuera de la pared
                 let nx = dx / dist;
                 let ny = dy / dist;
                 this.position.x = closest.x + nx * minDist;
                 this.position.y = closest.y + ny * minDist;
 
-                // Invertir/rebotar velocidad respecto a la normal
                 let dot = this.velocity.x * nx + this.velocity.y * ny;
-                if (dot < 0) { // Solo si va hacia la pared
+                if (dot < 0) {
                     this.velocity.x -= 1.8 * dot * nx;
                     this.velocity.y -= 1.8 * dot * ny;
                 }
@@ -214,25 +206,33 @@ class Agent {
     }
 }
 
-// --- CONTROLES DE DIBUJO DE PAREDES INTERACTIVAS ---
-canvas.addEventListener('mousedown', (e) => {
-    // Si hacemos clic en la zona del HUD, no dibujamos
-    if (e.clientX < 340 && e.clientY < 400 && !hudContainer.classList.contains('minimized')) return;
+// --- EVENTOS DE DIBUJO DE PAREDES (CORREGIDO) ---
+function getMousePos(e) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+    };
+}
+
+window.addEventListener('mousedown', (e) => {
+    // Evita dibujar si hacemos clic sobre el botón de minimizar o el HUD expandido
+    if (e.target.closest('#hud-container') || e.target.closest('#btn-toggle-hud')) return;
     
     isDrawing = true;
-    lastPoint = { x: e.clientX, y: e.clientY };
+    lastPoint = getMousePos(e);
 });
 
-canvas.addEventListener('mousemove', (e) => {
+window.addEventListener('mousemove', (e) => {
     if (!isDrawing || !lastPoint) return;
 
-    let currentPoint = { x: e.clientX, y: e.clientY };
+    let currentPoint = getMousePos(e);
     let dx = currentPoint.x - lastPoint.x;
     let dy = currentPoint.y - lastPoint.y;
     let dist = Math.sqrt(dx * dx + dy * dy);
 
-    // Agregar nuevo segmento si nos hemos movido al menos 10 píxeles
-    if (dist > 10) {
+    // Crea un segmento cada vez que te mueves al menos 5 píxeles
+    if (dist > 5) {
         walls.push({
             x1: lastPoint.x,
             y1: lastPoint.y,
@@ -265,29 +265,31 @@ btnClearWalls.addEventListener('click', () => {
 
 // --- BUCLE DE ANIMACIÓN ---
 function animate() {
-    ctx.fillStyle = 'rgba(5, 1, 7, 0.12)';
+    ctx.fillStyle = 'rgba(5, 1, 7, 0.15)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Actualizar valores numéricos del HUD
     document.getElementById('val-sep').innerText = parseFloat(sliderSep.value).toFixed(1);
     document.getElementById('val-ali').innerText = parseFloat(sliderAli.value).toFixed(1);
     document.getElementById('val-coh').innerText = parseFloat(sliderCoh.value).toFixed(1);
     document.getElementById('val-percepcion').innerText = sliderPercepcion.value;
 
-    // DIBUJAR PAREDES PAREDES OBSTÁCULO CON BRILLO DE NEÓN MAGENTA
-    ctx.strokeStyle = '#ff0055';
-    ctx.lineWidth = 4;
-    ctx.shadowColor = '#ff0055';
-    ctx.shadowBlur = 12;
-    ctx.lineCap = 'round';
+    // RENDERIZADO DE PAREDES CON NEÓN MAGENTA (Se dibujan en cada frame sobre las estelas)
+    if (walls.length > 0) {
+        ctx.save();
+        ctx.strokeStyle = '#ff0055';
+        ctx.lineWidth = 5;
+        ctx.shadowColor = '#ff0055';
+        ctx.shadowBlur = 12;
+        ctx.lineCap = 'round';
 
-    for (let wall of walls) {
         ctx.beginPath();
-        ctx.moveTo(wall.x1, wall.y1);
-        ctx.lineTo(wall.x2, wall.y2);
+        for (let wall of walls) {
+            ctx.moveTo(wall.x1, wall.y1);
+            ctx.lineTo(wall.x2, wall.y2);
+        }
         ctx.stroke();
+        ctx.restore();
     }
-    ctx.shadowBlur = 0; // Limpiar brillo para los agentes
 
     // Actualizar y dibujar agentes
     for (let agent of agents) {
