@@ -14,7 +14,6 @@ body, html {
     color: var(--neon-cyan);
 }
 
-/* Canvas en capa base */
 canvas {
     display: block;
     width: 100vw;
@@ -23,6 +22,7 @@ canvas {
     top: 0;
     left: 0;
     z-index: 1;
+    cursor: crosshair; /* Cursor de dibujo */
 }
 
 /* BOTÓN FLOTANTE - Capa superior garantizada */
@@ -30,7 +30,7 @@ canvas {
     position: fixed !important;
     top: 20px !important;
     left: 20px !important;
-    z-index: 9999 !important; /* Fuerza al botón a estar encima de todo */
+    z-index: 9999 !important;
     background: #0a030a;
     border: 1px solid var(--neon-magenta);
     color: var(--neon-magenta);
@@ -52,7 +52,7 @@ canvas {
 /* Panel HUD */
 #hud-container {
     position: fixed;
-    top: 65px; /* Se ubica justo debajo del botón */
+    top: 65px;
     left: 20px;
     z-index: 1000;
     width: 310px;
@@ -65,7 +65,6 @@ canvas {
     transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-/* Estado minimizado (esconde el panel hacia la izquierda) */
 #hud-container.minimized {
     transform: translateX(-360px);
 }
@@ -86,8 +85,9 @@ canvas {
 .hud-instruction {
     font-size: 0.68rem;
     color: #fff;
-    opacity: 0.6;
+    opacity: 0.7;
     margin: 5px 0;
+    line-height: 1.2;
 }
 
 .hud-divider {
@@ -129,8 +129,14 @@ input[type="range"]::-webkit-slider-thumb {
     background: transparent;
     border: 1px solid var(--neon-magenta);
     color: var(--neon-magenta);
-    padding: 10px;
+    padding: 8px;
     font-family: inherit;
     font-weight: bold;
     cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.hud-button:hover {
+    background: var(--neon-magenta);
+    color: #050107;
 }
