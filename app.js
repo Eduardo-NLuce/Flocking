@@ -1,16 +1,6 @@
 const canvas = document.getElementById('swarm-canvas');
 const ctx = canvas.getContext('2d');
-const btnToggleHud = document.getElementById('btn-toggle-hud');
-const hudContainer = document.getElementById('hud-container');
 
-btnToggleHud.addEventListener('click', () => {
-    hudContainer.classList.toggle('minimized');
-    if (hudContainer.classList.contains('minimized')) {
-        btnToggleHud.innerText = "[+ CONTROL_SYS]";
-    } else {
-        btnToggleHud.innerText = "_ MINIMIZE";
-    }
-});
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -18,7 +8,7 @@ function resizeCanvas() {
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-// --- UI CONTROLS & DOM ELEMENTS ---
+// --- ELEMENTOS DEL DOM Y HUD ---
 const sliderSep = document.getElementById('slider-sep');
 const sliderAli = document.getElementById('slider-ali');
 const sliderCoh = document.getElementById('slider-coh');
@@ -30,7 +20,7 @@ const hudContainer = document.getElementById('hud-container');
 
 let obstacles = [];
 
-// --- MINIMIZE / MAXIMIZE HUD LOGIC ---
+// --- LOGICA DE MINIMIZAR / MAXIMIZAR ---
 btnToggleHud.addEventListener('click', () => {
     hudContainer.classList.toggle('minimized');
     if (hudContainer.classList.contains('minimized')) {
@@ -40,7 +30,7 @@ btnToggleHud.addEventListener('click', () => {
     }
 });
 
-// --- AGENT CLASS (BOID) ---
+// --- CLASE AGENTE (BOID) ---
 class Agent {
     constructor(x, y) {
         this.position = { x: x, y: y };
@@ -174,7 +164,7 @@ class Agent {
     }
 }
 
-// --- INITIALIZE SWARM ---
+// --- INICIALIZACIÓN ---
 let agents = [];
 function initSwarm() {
     agents = [];
@@ -184,7 +174,7 @@ function initSwarm() {
     }
 }
 
-// Canvas click interaction for obstacles
+// Colocar obstáculos al dar clic
 canvas.addEventListener('mousedown', (e) => {
     const rect = canvas.getBoundingClientRect();
     obstacles.push({
@@ -197,7 +187,7 @@ canvas.addEventListener('mousedown', (e) => {
 
 btnReset.addEventListener('click', initSwarm);
 
-// --- ANIMATION LOOP ---
+// --- BUCLE DE ANIMACIÓN ---
 function animate() {
     ctx.fillStyle = 'rgba(5, 1, 7, 0.1)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -229,8 +219,5 @@ function animate() {
     requestAnimationFrame(animate);
 }
 
-initSwarm();
-animate();
-// Iniciar simulación
 initSwarm();
 animate();
