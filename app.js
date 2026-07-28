@@ -18,17 +18,21 @@ const btnClearWalls = document.getElementById('btn-clear-walls');
 const btnToggleHud = document.getElementById('btn-toggle-hud');
 const hudContainer = document.getElementById('hud-container');
 
-// Arreglos de obstáculos permanentes
-let walls = [];     // Líneas continuas
-let circles = [];   // Puntos fijos
+// Obstacle Data Structures
+let walls = [];     // Array of permanent straight lines: { x1, y1, x2, y2 }
+let circles = [];   // Array of permanent point obstacles: { x, y, radius }
 
 let isMouseDown = false;
 let isDragging = false;
-let currentCircleIndex = null; // Para saber qué punto borrar si el usuario decide arrastrar
+let currentCircleIndex = null;
 let startX = 0;
 let startY = 0;
-let lastX = 0;
-let lastY = 0;
+let currentMousePos = { x: 0, y: 0 };
+let isShiftPressed = false;
+
+// Track shift key for 45/90 degree snapping
+window.addEventListener('keydown', (e) => { if (e.key === 'Shift') isShiftPressed = true; });
+window.addEventListener('keyup', (e) => { if (e.key === 'Shift') isShiftPressed = false; });
 
 // --- TOGGLE HUD ---
 btnToggleHud.addEventListener('click', () => {
@@ -46,9 +50,26 @@ function getCanvasPos(e) {
     };
 }
 
-// --- SISTEMA CORREGIDO DE REGISTRO INSTANTÁNEO ---
+// Helper to snap endpoint to 45° / 90° angles when holding Shift
+function getSnappedPoint(p1, p2) {
+    if (!isShiftPressed) return p2;
+
+    let dx = p2.x - p1.x;
+    let dy = p2.y - p1.y;
+    let angle = Math.atan2(dy, dx);
+    let dist = Math.sqrt(dx * dx + dy * dy);
+
+    // Snap to nearest 45 degrees (PI / 4)
+    let snappedAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+
+    return {
+        x: p1.x + Math.cos(snappedAngle) * dist,
+        y: p1.y + Math.sin(snappedAngle) * dist
+    };
+}
+
+// --- STRAIGHT-LINE DRAWING INTERACTION ---
 window.addEventListener('mousedown', (e) => {
-    // Si hacemos clic en el HUD o en el botón de minimizar, ignoramos
     if (e.target.closest('#hud-container') || e.target.closest('#btn-toggle-hud')) return;
 
     const pos = getCanvasPos(e);
@@ -57,12 +78,10 @@ window.addEventListener('mousedown', (e) => {
     
     startX = pos.x;
     startY = pos.y;
-    lastX = pos.x;
-    lastY = pos.y;
+    currentMousePos = { x: pos.x, y: pos.y };
 
-    // TRUCO DE REDRAW: Agregamos el punto INMEDIATAMENTE al hacer clic.
-    // Si el usuario no se mueve, este punto ya queda permanente.
-    circles.push({ x: startX, y: startY, radius: 18 });
+    // Place point immediately
+    circles.push({ x: startX, y: startY, radius: 16 });
     currentCircleIndex = circles.length - 1;
 });
 
@@ -70,45 +89,48 @@ window.addEventListener('mousemove', (e) => {
     if (!isMouseDown) return;
 
     const pos = getCanvasPos(e);
-    let dxFromStart = pos.x - startX;
-    let dyFromStart = pos.y - startY;
-    let distFromStart = Math.sqrt(dxFromStart * dxFromStart + dyFromStart * dyFromStart);
+    currentMousePos = getSnappedPoint({ x: startX, y: startY }, pos);
 
-    // Si el usuario arrastra más de 6 píxeles, cancelamos el punto y lo convertimos en línea
-    if (distFromStart > 6) {
+    let dx = currentMousePos.x - startX;
+    let dy = currentMousePos.y - startY;
+    let dist = Math.sqrt(dx * dx + dy * dy);
+
+    // Switch to straight line mode once dragged beyond threshold
+    if (dist > 10) {
         if (!isDragging) {
             isDragging = true;
-            // Eliminamos el punto provisional que creamos en mousedown
+            // Remove the temporary circle
             if (currentCircleIndex !== null && circles[currentCircleIndex]) {
                 circles.splice(currentCircleIndex, 1);
                 currentCircleIndex = null;
             }
         }
-
-        let dx = pos.x - lastX;
-        let dy = pos.y - lastY;
-        let dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist > 3) {
-            walls.push({
-                x1: lastX,
-                y1: lastY,
-                x2: pos.x,
-                y2: pos.y
-            });
-            lastX = pos.x;
-            lastY = pos.y;
-        }
     }
 });
 
 window.addEventListener('mouseup', () => {
+    if (isMouseDown && isDragging) {
+        // Lock in the straight line segment
+        let dx = currentMousePos.x - startX;
+        let dy = currentMousePos.y - startY;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist > 15) {
+            walls.push({
+                x1: startX,
+                y1: startY,
+                x2: currentMousePos.x,
+                y2: currentMousePos.y
+            });
+        }
+    }
+
     isMouseDown = false;
     isDragging = false;
     currentCircleIndex = null;
 });
 
-// --- HELPER MATEMÁTICO ---
+// --- GEOMETRY UTILS ---
 function getClosestPointOnSegment(p, a, b) {
     let ab = { x: b.x - a.x, y: b.y - a.y };
     let ap = { x: p.x - a.x, y: p.y - a.y };
@@ -125,7 +147,7 @@ function getClosestPointOnSegment(p, a, b) {
     };
 }
 
-// --- CLASE AGENTE (BOID) ---
+// --- BOID AGENT CLASS ---
 class Agent {
     constructor(x, y) {
         this.position = { x: x, y: y };
@@ -223,7 +245,7 @@ class Agent {
     }
 
     avoidObstacles() {
-        // 1. Repulsión y Colisión con Puntos (Círculos)
+        // Point repellers
         for (let c of circles) {
             let dx = this.position.x - c.x;
             let dy = this.position.y - c.y;
@@ -242,7 +264,7 @@ class Agent {
             }
         }
 
-        // 2. Repulsión y Colisión con Paredes (Líneas)
+        // Straight walls
         const avoidDistance = 35;
         for (let wall of walls) {
             let a = { x: wall.x1, y: wall.y1 };
@@ -297,7 +319,7 @@ class Agent {
     }
 }
 
-// --- INICIALIZACIÓN ---
+// --- INITIALIZATION ---
 let agents = [];
 function initSwarm() {
     agents = [];
@@ -312,9 +334,8 @@ btnClearWalls.addEventListener('click', () => {
     circles = [];
 });
 
-// --- BUCLE DE ANIMACIÓN (REDRAW CONSTANTE) ---
+// --- RENDER LOOP ---
 function animate() {
-    // Fondo semitransparente para estela de partículas
     ctx.fillStyle = 'rgba(5, 1, 7, 0.15)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -323,7 +344,7 @@ function animate() {
     document.getElementById('val-coh').innerText = parseFloat(sliderCoh.value).toFixed(1);
     document.getElementById('val-percepcion').innerText = sliderPercepcion.value;
 
-    // RENDERIZAR PUNTOS (Se dibujan explícitamente en CADA FRAME sobre el fondo)
+    // RENDER CIRCLE NODES
     for (let c of circles) {
         ctx.save();
         ctx.beginPath();
@@ -332,31 +353,47 @@ function animate() {
         ctx.strokeStyle = '#ff0055';
         ctx.lineWidth = 2;
         ctx.shadowColor = '#ff0055';
-        ctx.shadowBlur = 12;
+        ctx.shadowBlur = 10;
         ctx.fill();
         ctx.stroke();
         ctx.restore();
     }
 
-    // RENDERIZAR PAREDES
+    // RENDER PERMANENT STRAIGHT WALLS
     if (walls.length > 0) {
         ctx.save();
         ctx.strokeStyle = '#ff0055';
-        ctx.lineWidth = 5;
+        ctx.lineWidth = 4;
         ctx.shadowColor = '#ff0055';
-        ctx.shadowBlur = 12;
-        ctx.lineCap = 'round';
+        ctx.shadowBlur = 10;
+        ctx.lineCap = 'square'; // Clean vector ends instead of round sketchy joints
 
-        ctx.beginPath();
         for (let wall of walls) {
+            ctx.beginPath();
             ctx.moveTo(wall.x1, wall.y1);
             ctx.lineTo(wall.x2, wall.y2);
+            ctx.stroke();
         }
+        ctx.restore();
+    }
+
+    // RENDER ACTIVE DRAGGING LINE PREVIEW
+    if (isMouseDown && isDragging) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 0, 85, 0.8)';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([6, 6]); // Dashed line preview
+        ctx.shadowColor = '#ff0055';
+        ctx.shadowBlur = 8;
+
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(currentMousePos.x, currentMousePos.y);
         ctx.stroke();
         ctx.restore();
     }
 
-    // Actualizar y dibujar agentes
+    // UPDATE AND DRAW BOID AGENTS
     for (let agent of agents) {
         agent.flock(agents);
         agent.update();
