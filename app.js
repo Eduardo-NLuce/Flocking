@@ -18,12 +18,13 @@ const btnClearWalls = document.getElementById('btn-clear-walls');
 const btnToggleHud = document.getElementById('btn-toggle-hud');
 const hudContainer = document.getElementById('hud-container');
 
-// Arreglos de obstáculos
-let walls = [];     // Para los trazos de líneas (clic + drag)
-let circles = [];   // Para los puntos fijos (clic puntual)
+// Arreglos de obstáculos permanentes
+let walls = [];     // Líneas continuas
+let circles = [];   // Puntos fijos
 
 let isMouseDown = false;
 let isDragging = false;
+let currentCircleIndex = null; // Para saber qué punto borrar si el usuario decide arrastrar
 let startX = 0;
 let startY = 0;
 let lastX = 0;
@@ -37,7 +38,6 @@ btnToggleHud.addEventListener('click', () => {
         : "_ MINIMIZE";
 });
 
-// Helper para obtener coordenadas exactas del mouse sobre el Canvas
 function getCanvasPos(e) {
     const rect = canvas.getBoundingClientRect();
     return {
@@ -46,18 +46,24 @@ function getCanvasPos(e) {
     };
 }
 
-// --- SISTEMA DUAL DE DIBUJO (POINT VS LINE) ---
+// --- SISTEMA CORREGIDO DE REGISTRO INSTANTÁNEO ---
 window.addEventListener('mousedown', (e) => {
-    // Si hacemos clic en el botón de minimizar o sobre el HUD abierto, ignoramos el dibujo
+    // Si hacemos clic en el HUD o en el botón de minimizar, ignoramos
     if (e.target.closest('#hud-container') || e.target.closest('#btn-toggle-hud')) return;
 
     const pos = getCanvasPos(e);
     isMouseDown = true;
     isDragging = false;
+    
     startX = pos.x;
     startY = pos.y;
     lastX = pos.x;
     lastY = pos.y;
+
+    // TRUCO DE REDRAW: Agregamos el punto INMEDIATAMENTE al hacer clic.
+    // Si el usuario no se mueve, este punto ya queda permanente.
+    circles.push({ x: startX, y: startY, radius: 18 });
+    currentCircleIndex = circles.length - 1;
 });
 
 window.addEventListener('mousemove', (e) => {
@@ -68,9 +74,16 @@ window.addEventListener('mousemove', (e) => {
     let dyFromStart = pos.y - startY;
     let distFromStart = Math.sqrt(dxFromStart * dxFromStart + dyFromStart * dyFromStart);
 
-    // Si nos movemos más de 5 píxeles, cambiamos a modo Línea (Arrastrar)
-    if (distFromStart > 5) {
-        isDragging = true;
+    // Si el usuario arrastra más de 6 píxeles, cancelamos el punto y lo convertimos en línea
+    if (distFromStart > 6) {
+        if (!isDragging) {
+            isDragging = true;
+            // Eliminamos el punto provisional que creamos en mousedown
+            if (currentCircleIndex !== null && circles[currentCircleIndex]) {
+                circles.splice(currentCircleIndex, 1);
+                currentCircleIndex = null;
+            }
+        }
 
         let dx = pos.x - lastX;
         let dy = pos.y - lastY;
@@ -89,19 +102,10 @@ window.addEventListener('mousemove', (e) => {
     }
 });
 
-window.addEventListener('mouseup', (e) => {
-    if (isMouseDown) {
-        // Si no se arrastró, fue un clic puntual -> Dibujar punto/círculo obstáculo
-        if (!isDragging) {
-            circles.push({
-                x: startX,
-                y: startY,
-                radius: 18
-            });
-        }
-    }
+window.addEventListener('mouseup', () => {
     isMouseDown = false;
     isDragging = false;
+    currentCircleIndex = null;
 });
 
 // --- HELPER MATEMÁTICO ---
@@ -230,7 +234,6 @@ class Agent {
                 this.steerTowards(pushForce, 3.0);
             }
 
-            // Rebote estricto en el borde del círculo
             if (dist < c.radius + 8 && dist > 0) {
                 let nx = dx / dist;
                 let ny = dy / dist;
@@ -294,7 +297,7 @@ class Agent {
     }
 }
 
-// --- INICIALIZACIÓN Y EVENTOS ---
+// --- INICIALIZACIÓN ---
 let agents = [];
 function initSwarm() {
     agents = [];
@@ -309,8 +312,9 @@ btnClearWalls.addEventListener('click', () => {
     circles = [];
 });
 
-// --- BUCLE DE ANIMACIÓN ---
+// --- BUCLE DE ANIMACIÓN (REDRAW CONSTANTE) ---
 function animate() {
+    // Fondo semitransparente para estela de partículas
     ctx.fillStyle = 'rgba(5, 1, 7, 0.15)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -319,25 +323,22 @@ function animate() {
     document.getElementById('val-coh').innerText = parseFloat(sliderCoh.value).toFixed(1);
     document.getElementById('val-percepcion').innerText = sliderPercepcion.value;
 
-    // RENDERIZAR PUNTOS (CÍRCULOS)
-    if (circles.length > 0) {
+    // RENDERIZAR PUNTOS (Se dibujan explícitamente en CADA FRAME sobre el fondo)
+    for (let c of circles) {
         ctx.save();
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(255, 0, 85, 0.35)';
         ctx.strokeStyle = '#ff0055';
         ctx.lineWidth = 2;
         ctx.shadowColor = '#ff0055';
         ctx.shadowBlur = 12;
-
-        for (let c of circles) {
-            ctx.beginPath();
-            ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-        }
+        ctx.fill();
+        ctx.stroke();
         ctx.restore();
     }
 
-    // RENDERIZAR PAREDES (LÍNEAS)
+    // RENDERIZAR PAREDES
     if (walls.length > 0) {
         ctx.save();
         ctx.strokeStyle = '#ff0055';
@@ -355,7 +356,7 @@ function animate() {
         ctx.restore();
     }
 
-    // Actualizar agentes
+    // Actualizar y dibujar agentes
     for (let agent of agents) {
         agent.flock(agents);
         agent.update();
