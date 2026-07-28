@@ -12,8 +12,10 @@ body, html {
     background-color: #050107;
     font-family: 'Courier New', Courier, monospace;
     color: var(--neon-cyan);
+    user-select: none; /* Previene selecciones de texto mientras se dibuja */
 }
 
+/* Canvas interactivo */
 canvas {
     display: block;
     width: 100vw;
@@ -22,10 +24,11 @@ canvas {
     top: 0;
     left: 0;
     z-index: 1;
-    cursor: crosshair; /* Cursor de dibujo */
+    cursor: crosshair;
+    pointer-events: auto !important; /* Habilita clicks directos en el canvas */
 }
 
-/* BOTÓN FLOTANTE - Capa superior garantizada */
+/* Botón flotante siempre visible */
 .hud-toggle-btn {
     position: fixed !important;
     top: 20px !important;
