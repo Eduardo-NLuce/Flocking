@@ -1,6 +1,16 @@
 const canvas = document.getElementById('swarm-canvas');
 const ctx = canvas.getContext('2d');
+const btnToggleHud = document.getElementById('btn-toggle-hud');
+const hudContainer = document.getElementById('hud-container');
 
+btnToggleHud.addEventListener('click', () => {
+    hudContainer.classList.toggle('minimized');
+    if (hudContainer.classList.contains('minimized')) {
+        btnToggleHud.innerText = "[+ CONTROL_SYS]";
+    } else {
+        btnToggleHud.innerText = "_ MINIMIZE";
+    }
+});
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
